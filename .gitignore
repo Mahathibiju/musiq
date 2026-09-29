@@ -1,0 +1,48 @@
+# =========================
+# Python / FastAPI backend
+# =========================
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+.env
+
+# Generated audio / uploaded songs
+backend/uploads/
+backend/server_output/
+backend/*.mp3
+backend/*.wav
+backend/**/*.mp3
+backend/**/*.wav
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+
+# =========================
+# Flutter
+# =========================
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.idea/
+frontend/*.iml
+
+# =========================
+# macOS
+# =========================
+.DS_Store
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+
+# =========================
+# Logs
+# =========================
+*.log
