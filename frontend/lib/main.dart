@@ -11,9 +11,8 @@ void main() {
   runApp(const MusiqApp());
 }
 
-
 // ============================================================
-// APP
+// MUSIQ APP
 // ============================================================
 
 class MusiqApp extends StatelessWidget {
@@ -23,14 +22,13 @@ class MusiqApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Musiq',
+      title: 'Isai',
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor:
-            const Color(0xFF0B0C0F),
+        scaffoldBackgroundColor: const Color(0xFF080909),
         fontFamily: 'Inter',
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFA855F7),
+          seedColor: const Color(0xFFF0442E),
           brightness: Brightness.dark,
         ),
       ),
@@ -39,6 +37,21 @@ class MusiqApp extends StatelessWidget {
   }
 }
 
+// ============================================================
+// COLORS
+// ============================================================
+
+const Color kBackground = Color(0xFF080909);
+const Color kPanel = Color(0xFF111212);
+const Color kPanelLight = Color(0xFF171818);
+
+const Color kRed = Color(0xFFF0442E);
+const Color kDarkRed = Color(0xFFA52D22);
+
+const Color kCream = Color(0xFFF1E4C8);
+const Color kMuted = Color(0xFF9D9688);
+
+const Color kBlack = Color(0xFF050505);
 
 // ============================================================
 // STEM DATA
@@ -46,7 +59,7 @@ class MusiqApp extends StatelessWidget {
 
 class StemData {
   final String name;
-  final String icon;
+  final IconData icon;
   final Color color;
   final AudioPlayer player;
 
@@ -63,7 +76,6 @@ class StemData {
   });
 }
 
-
 // ============================================================
 // MAIN PAGE
 // ============================================================
@@ -72,52 +84,33 @@ class SoundMixerPage extends StatefulWidget {
   const SoundMixerPage({super.key});
 
   @override
-  State<SoundMixerPage> createState() =>
-      _SoundMixerPageState();
+  State<SoundMixerPage> createState() => _SoundMixerPageState();
 }
 
-
-class _SoundMixerPageState
-    extends State<SoundMixerPage> {
-
+class _SoundMixerPageState extends State<SoundMixerPage> {
   // ==========================================================
   // BACKEND
   // ==========================================================
 
-  static const String backendUrl =
-      'http://127.0.0.1:8000';
-
+  static const String backendUrl = 'http://127.0.0.1:8000';
 
   // ==========================================================
   // AUDIO PLAYERS
   // ==========================================================
 
-  final AudioPlayer vocalsPlayer =
-      AudioPlayer();
-
-  final AudioPlayer drumsPlayer =
-      AudioPlayer();
-
-  final AudioPlayer bassPlayer =
-      AudioPlayer();
-
-  final AudioPlayer otherPlayer =
-      AudioPlayer();
-
+  final AudioPlayer vocalsPlayer = AudioPlayer();
+  final AudioPlayer drumsPlayer = AudioPlayer();
+  final AudioPlayer bassPlayer = AudioPlayer();
+  final AudioPlayer otherPlayer = AudioPlayer();
 
   late final List<StemData> stems;
-
 
   // ==========================================================
   // STREAMS
   // ==========================================================
 
-  StreamSubscription<Duration>?
-      _positionSubscription;
-
-  StreamSubscription<Duration?>?
-      _durationSubscription;
-
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
 
   // ==========================================================
   // SONG STATE
@@ -129,7 +122,6 @@ class _SoundMixerPageState
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
 
-
   // ==========================================================
   // UI STATE
   // ==========================================================
@@ -139,20 +131,23 @@ class _SoundMixerPageState
   bool stemsReady = false;
   bool removeVocals = false;
 
-
   // ==========================================================
   // MIX STATE
   // ==========================================================
 
   double masterVolume = 1.0;
 
-  // Current applied transpose.
+  // Transpose:
+  // -12 to +12 semitones
   double transpose = 0.0;
 
+  // Tempo:
+  // -100 = slowest
+  // 0 = original
+  // +100 = fastest
+  double tempo = 0.0;
 
-  String statusMessage =
-      'Upload a song to begin';
-
+  String statusMessage = 'Upload a song to begin';
 
   // ==========================================================
   // INIT
@@ -162,73 +157,59 @@ class _SoundMixerPageState
   void initState() {
     super.initState();
 
-
     stems = [
-
       StemData(
-        name: 'Vocals',
-        icon: '🎤',
-        color: const Color(0xFFFF40DA),
+        name: 'VOCALS',
+        icon: Icons.mic_none_rounded,
+        color: kRed,
         player: vocalsPlayer,
       ),
-
       StemData(
-        name: 'Drums',
-        icon: '🥁',
-        color: const Color(0xFFFF681A),
+        name: 'DRUMS',
+        icon: Icons.album_rounded,
+        color: kCream,
         player: drumsPlayer,
       ),
-
       StemData(
-        name: 'Bass',
-        icon: '🎸',
-        color: const Color(0xFFA855F7),
+        name: 'BASS',
+        icon: Icons.graphic_eq_rounded,
+        color: kRed,
         player: bassPlayer,
       ),
-
       StemData(
-        name: 'Other',
-        icon: '🎹',
-        color: const Color(0xFF4CC9F0),
+        name: 'OTHER',
+        icon: Icons.piano_rounded,
+        color: kCream,
         player: otherPlayer,
       ),
     ];
-
 
     // ========================================================
     // PLAYBACK POSITION
     // ========================================================
 
     _positionSubscription =
-        vocalsPlayer.onPositionChanged.listen(
-      (newPosition) {
+        vocalsPlayer.onPositionChanged.listen((newPosition) {
+      if (!mounted) return;
 
-        if (!mounted) return;
-
-        setState(() {
-          position = newPosition;
-        });
-      },
-    );
-
+      setState(() {
+        position = newPosition;
+      });
+    });
 
     // ========================================================
     // SONG DURATION
     // ========================================================
 
     _durationSubscription =
-        vocalsPlayer.onDurationChanged.listen(
-      (newDuration) {
+        vocalsPlayer.onDurationChanged.listen((newDuration) {
+      if (!mounted) return;
 
-        if (!mounted) return;
-
-        setState(() {
-          duration = newDuration;
-        });
-      },
-    );
+      setState(() {
+        duration = newDuration;
+      });
+    });
   }
-
 
   // ==========================================================
   // DISPOSE
@@ -236,7 +217,6 @@ class _SoundMixerPageState
 
   @override
   void dispose() {
-
     _positionSubscription?.cancel();
     _durationSubscription?.cancel();
 
@@ -248,20 +228,15 @@ class _SoundMixerPageState
     super.dispose();
   }
 
-
   // ==========================================================
   // UPLOAD + SEPARATE
   // ==========================================================
 
   Future<void> pickSong() async {
-
     if (isLoading) return;
 
-
     try {
-
-      final result =
-          await FilePicker.platform.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: [
           'mp3',
@@ -273,32 +248,21 @@ class _SoundMixerPageState
         withData: true,
       );
 
-
-      if (
-        result == null ||
-        result.files.isEmpty
-      ) {
+      if (result == null || result.files.isEmpty) {
         return;
       }
 
-
-      final file =
-          result.files.first;
-
+      final file = result.files.first;
 
       if (file.bytes == null) {
-
         setState(() {
-          statusMessage =
-              'Could not read the selected file.';
+          statusMessage = 'Could not read the selected file.';
         });
 
         return;
       }
 
-
       setState(() {
-
         isLoading = true;
         stemsReady = false;
         isPlaying = false;
@@ -309,27 +273,21 @@ class _SoundMixerPageState
         selectedFileName = file.name;
 
         transpose = 0.0;
+        tempo = 0.0;
 
-        statusMessage =
-            'Uploading song...';
+        statusMessage = 'Uploading song...';
       });
 
-
       await stopAll();
-
 
       // ======================================================
       // SEND SONG TO BACKEND
       // ======================================================
 
-      final request =
-          http.MultipartRequest(
+      final request = http.MultipartRequest(
         'POST',
-        Uri.parse(
-          '$backendUrl/separate',
-        ),
+        Uri.parse('$backendUrl/separate'),
       );
-
 
       request.files.add(
         http.MultipartFile.fromBytes(
@@ -339,58 +297,34 @@ class _SoundMixerPageState
         ),
       );
 
+      final streamedResponse = await request.send();
 
-      final streamedResponse =
-          await request.send();
-
-
-      final response =
-          await http.Response.fromStream(
+      final response = await http.Response.fromStream(
         streamedResponse,
       );
 
-
       if (response.statusCode != 200) {
-
         String errorMessage =
             'Backend error (${response.statusCode})';
 
-
         try {
+          final errorJson = jsonDecode(response.body);
 
-          final errorJson =
-              jsonDecode(response.body);
-
-          if (
-            errorJson is Map &&
-            errorJson['detail'] != null
-          ) {
-
-            errorMessage =
-                errorJson['detail'].toString();
+          if (errorJson is Map &&
+              errorJson['detail'] != null) {
+            errorMessage = errorJson['detail'].toString();
           }
-
         } catch (_) {}
-
 
         throw Exception(errorMessage);
       }
 
+      final data = jsonDecode(response.body);
 
-      final data =
-          jsonDecode(response.body);
+      final Map<String, dynamic> stemUrls =
+          Map<String, dynamic>.from(data['stems']);
 
-
-      final Map<String, dynamic>
-          stemUrls =
-          Map<String, dynamic>.from(
-        data['stems'],
-      );
-
-
-      jobId =
-          data['job_id']?.toString();
-
+      jobId = data['job_id']?.toString();
 
       // ======================================================
       // VERIFY FOUR STEMS
@@ -402,21 +336,16 @@ class _SoundMixerPageState
         'bass',
         'other',
       ]) {
-
         if (stemUrls[name] == null) {
-
           throw Exception(
             'Backend did not return $name stem.',
           );
         }
       }
 
-
       setState(() {
-        statusMessage =
-            'Loading 4 separated stems...';
+        statusMessage = 'Loading 4 separated stems...';
       });
-
 
       // ======================================================
       // LOAD FOUR STEMS
@@ -442,13 +371,11 @@ class _SoundMixerPageState
         stemUrls['other'].toString(),
       );
 
-
       // ======================================================
       // RESET MIX SETTINGS
       // ======================================================
 
       for (final stem in stems) {
-
         stem.volume = 1.0;
         stem.muted = false;
 
@@ -457,34 +384,26 @@ class _SoundMixerPageState
         );
       }
 
-
       setState(() {
-
         stemsReady = true;
         isLoading = false;
 
-        statusMessage =
-            '4 stems ready';
+        statusMessage = '4 stems ready';
       });
-
     } catch (e) {
-
       await stopAll();
 
       if (!mounted) return;
 
       setState(() {
-
         isLoading = false;
         stemsReady = false;
         isPlaying = false;
 
-        statusMessage =
-            'Error: $e';
+        statusMessage = 'Error: $e';
       });
     }
   }
-
 
   // ==========================================================
   // LOAD AUDIO STEM
@@ -494,15 +413,10 @@ class _SoundMixerPageState
     AudioPlayer player,
     String relativeUrl,
   ) async {
+    final fullUrl = '$backendUrl$relativeUrl';
 
-    final fullUrl =
-        '$backendUrl$relativeUrl';
-
-    await player.setSourceUrl(
-      fullUrl,
-    );
+    await player.setSourceUrl(fullUrl);
   }
-
 
   // ==========================================================
   // APPLY TRANSPOSE
@@ -511,108 +425,60 @@ class _SoundMixerPageState
   Future<void> applyTranspose(
     double semitones,
   ) async {
-
-    if (
-      !stemsReady ||
-      jobId == null
-    ) {
+    if (!stemsReady || jobId == null) {
       return;
     }
 
-
-    // Force slider value to an integer
-    // because the backend uses semitone steps.
-
-    final int requestedSemitones =
-        semitones.round();
-
+    final int requestedSemitones = semitones.round();
 
     try {
-
       setState(() {
-
         isLoading = true;
         isPlaying = false;
 
-        statusMessage =
-            requestedSemitones == 0
-                ? 'Restoring original pitch...'
-                : 'Transposing to '
-                  '${requestedSemitones > 0 ? '+' : ''}'
-                  '$requestedSemitones semitones...';
+        statusMessage = requestedSemitones == 0
+            ? 'Restoring original pitch...'
+            : 'Transposing to '
+                '${requestedSemitones > 0 ? '+' : ''}'
+                '$requestedSemitones semitones...';
       });
 
-
       await stopAll();
-
 
       // ======================================================
       // CALL BACKEND
       // ======================================================
 
-      final response =
-          await http.post(
-
-        Uri.parse(
-          '$backendUrl/transpose',
-        ),
-
+      final response = await http.post(
+        Uri.parse('$backendUrl/transpose'),
         headers: {
-          'Content-Type':
-              'application/json',
+          'Content-Type': 'application/json',
         },
-
         body: jsonEncode({
-
           'job_id': jobId,
-
-          'semitones':
-              requestedSemitones,
+          'semitones': requestedSemitones,
         }),
       );
 
-
       if (response.statusCode != 200) {
-
-        String message =
-            'Transpose failed';
-
+        String message = 'Transpose failed';
 
         try {
+          final error = jsonDecode(response.body);
 
-          final error =
-              jsonDecode(response.body);
-
-          if (
-            error is Map &&
-            error['detail'] != null
-          ) {
-
-            message =
-                error['detail'].toString();
+          if (error is Map &&
+              error['detail'] != null) {
+            message = error['detail'].toString();
           }
-
         } catch (_) {}
-
 
         throw Exception(message);
       }
 
+      final data = jsonDecode(response.body);
 
-      final data =
-          jsonDecode(response.body);
-
-
-      final Map<String, dynamic>
-          stemUrls =
-          Map<String, dynamic>.from(
-        data['stems'],
-      );
-
-
-      // ======================================================
-      // VERIFY RESPONSE
-      // ======================================================
+      final Map<String, dynamic> stemUrls =
+          Map<String, dynamic>.from(data['stems']);
 
       for (final name in [
         'vocals',
@@ -620,18 +486,15 @@ class _SoundMixerPageState
         'bass',
         'other',
       ]) {
-
         if (stemUrls[name] == null) {
-
           throw Exception(
             'Transpose response is missing $name.',
           );
         }
       }
 
-
       // ======================================================
-      // LOAD TRANSPOSED FOUR STEMS
+      // LOAD TRANSPOSED STEMS
       // ======================================================
 
       await loadStem(
@@ -654,178 +517,267 @@ class _SoundMixerPageState
         stemUrls['other'].toString(),
       );
 
-
       // ======================================================
-      // RESTORE VOLUME / MUTE SETTINGS
+      // RESTORE VOLUMES
       // ======================================================
 
       for (final stem in stems) {
-
         await stem.player.setVolume(
           stem.muted
               ? 0.0
-              : stem.volume *
-                masterVolume,
+              : stem.volume * masterVolume,
         );
       }
 
-
       if (!mounted) return;
 
-
       setState(() {
-
-        transpose =
-            requestedSemitones.toDouble();
+        transpose = requestedSemitones.toDouble();
 
         isLoading = false;
         isPlaying = false;
 
         position = Duration.zero;
 
-        statusMessage =
-            requestedSemitones == 0
-                ? 'Original pitch restored'
-                : 'Transpose '
-                  '${requestedSemitones > 0 ? '+' : ''}'
-                  '$requestedSemitones semitones applied';
+        statusMessage = requestedSemitones == 0
+            ? 'Original pitch restored'
+            : 'Transpose '
+                '${requestedSemitones > 0 ? '+' : ''}'
+                '$requestedSemitones applied';
       });
-
     } catch (e) {
-
       if (!mounted) return;
 
       setState(() {
-
         isLoading = false;
         isPlaying = false;
 
-        statusMessage =
-            'Transpose error: $e';
+        statusMessage = 'Transpose error: $e';
       });
     }
   }
 
+  // ==========================================================
+  // APPLY TEMPO
+  // ==========================================================
+
+  Future<void> applyTempo(
+    double tempoValue,
+  ) async {
+    if (!stemsReady || jobId == null) {
+      return;
+    }
+
+    final int requestedTempo = tempoValue.round();
+
+    try {
+      setState(() {
+        isLoading = true;
+        isPlaying = false;
+
+        statusMessage = requestedTempo == 0
+            ? 'Restoring original tempo...'
+            : 'Changing tempo to '
+                '${requestedTempo > 0 ? '+' : ''}'
+                '$requestedTempo...';
+      });
+
+      await stopAll();
+
+      // ======================================================
+      // CALL BACKEND
+      // ======================================================
+
+      final response = await http.post(
+        Uri.parse('$backendUrl/tempo'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'job_id': jobId,
+          'tempo_percent': requestedTempo,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        String message = 'Tempo change failed';
+
+        try {
+          final error = jsonDecode(response.body);
+
+          if (error is Map &&
+              error['detail'] != null) {
+            message = error['detail'].toString();
+          }
+        } catch (_) {}
+
+        throw Exception(message);
+      }
+
+      final data = jsonDecode(response.body);
+
+      final Map<String, dynamic> stemUrls =
+          Map<String, dynamic>.from(data['stems']);
+
+      // ======================================================
+      // VERIFY
+      // ======================================================
+
+      for (final name in [
+        'vocals',
+        'drums',
+        'bass',
+        'other',
+      ]) {
+        if (stemUrls[name] == null) {
+          throw Exception(
+            'Tempo response is missing $name.',
+          );
+        }
+      }
+
+      // ======================================================
+      // LOAD TEMPO STEMS
+      // ======================================================
+
+      await loadStem(
+        vocalsPlayer,
+        stemUrls['vocals'].toString(),
+      );
+
+      await loadStem(
+        drumsPlayer,
+        stemUrls['drums'].toString(),
+      );
+
+      await loadStem(
+        bassPlayer,
+        stemUrls['bass'].toString(),
+      );
+
+      await loadStem(
+        otherPlayer,
+        stemUrls['other'].toString(),
+      );
+
+      // ======================================================
+      // RESTORE VOLUMES
+      // ======================================================
+
+      for (final stem in stems) {
+        await stem.player.setVolume(
+          stem.muted
+              ? 0.0
+              : stem.volume * masterVolume,
+        );
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        tempo = requestedTempo.toDouble();
+
+        isLoading = false;
+        isPlaying = false;
+
+        position = Duration.zero;
+
+        statusMessage = requestedTempo == 0
+            ? 'Original tempo restored'
+            : 'Tempo '
+                '${requestedTempo > 0 ? '+' : ''}'
+                '$requestedTempo applied';
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+        isPlaying = false;
+
+        statusMessage = 'Tempo error: $e';
+      });
+    }
+  }
 
   // ==========================================================
   // PLAY ALL
   // ==========================================================
 
   Future<void> playAll() async {
-
     if (!stemsReady) return;
 
-
     try {
-
       if (isPlaying) {
-
         await pauseAll();
-
         return;
       }
 
-
       setState(() {
-        statusMessage =
-            'Playing...';
+        statusMessage = 'Playing...';
       });
 
-
       await Future.wait([
-
         vocalsPlayer.resume(),
-
         drumsPlayer.resume(),
-
         bassPlayer.resume(),
-
         otherPlayer.resume(),
       ]);
 
-
       if (!mounted) return;
-
 
       setState(() {
         isPlaying = true;
       });
-
     } catch (e) {
-
       if (!mounted) return;
 
       setState(() {
-
-        statusMessage =
-            'Playback error: $e';
-
+        statusMessage = 'Playback error: $e';
         isPlaying = false;
       });
     }
   }
-
 
   // ==========================================================
   // PAUSE
   // ==========================================================
 
   Future<void> pauseAll() async {
-
     await Future.wait([
-
       vocalsPlayer.pause(),
-
       drumsPlayer.pause(),
-
       bassPlayer.pause(),
-
       otherPlayer.pause(),
     ]);
 
-
     if (!mounted) return;
 
-
     setState(() {
-
       isPlaying = false;
-
-      statusMessage =
-          'Paused';
+      statusMessage = 'Paused';
     });
   }
-
 
   // ==========================================================
   // STOP
   // ==========================================================
 
   Future<void> stopAll() async {
-
     await Future.wait([
-
       vocalsPlayer.stop(),
-
       drumsPlayer.stop(),
-
       bassPlayer.stop(),
-
       otherPlayer.stop(),
     ]);
 
-
     if (!mounted) return;
 
-
     setState(() {
-
       isPlaying = false;
-
       position = Duration.zero;
     });
   }
-
 
   // ==========================================================
   // SEEK ALL
@@ -834,30 +786,21 @@ class _SoundMixerPageState
   Future<void> seekAll(
     Duration newPosition,
   ) async {
-
     if (!stemsReady) return;
 
-
     await Future.wait([
-
       vocalsPlayer.seek(newPosition),
-
       drumsPlayer.seek(newPosition),
-
       bassPlayer.seek(newPosition),
-
       otherPlayer.seek(newPosition),
     ]);
 
-
     if (!mounted) return;
-
 
     setState(() {
       position = newPosition;
     });
   }
-
 
   // ==========================================================
   // STEM VOLUME
@@ -867,11 +810,9 @@ class _SoundMixerPageState
     StemData stem,
     double value,
   ) async {
-
     setState(() {
       stem.volume = value;
     });
-
 
     await stem.player.setVolume(
       stem.muted
@@ -880,7 +821,6 @@ class _SoundMixerPageState
     );
   }
 
-
   // ==========================================================
   // MUTE
   // ==========================================================
@@ -888,20 +828,16 @@ class _SoundMixerPageState
   Future<void> toggleMute(
     StemData stem,
   ) async {
-
     setState(() {
       stem.muted = !stem.muted;
     });
 
-
     await stem.player.setVolume(
       stem.muted
           ? 0.0
-          : stem.volume *
-            masterVolume,
+          : stem.volume * masterVolume,
     );
   }
-
 
   // ==========================================================
   // MASTER VOLUME
@@ -910,257 +846,158 @@ class _SoundMixerPageState
   Future<void> changeMasterVolume(
     double value,
   ) async {
-
     setState(() {
       masterVolume = value;
     });
 
-
     for (final stem in stems) {
-
       await stem.player.setVolume(
         stem.muted
             ? 0.0
-            : stem.volume *
-              masterVolume,
+            : stem.volume * masterVolume,
       );
     }
   }
-
 
   // ==========================================================
   // REMOVE VOCALS
   // ==========================================================
 
   Future<void> toggleRemoveVocals() async {
-
     setState(() {
-      removeVocals =
-          !removeVocals;
+      removeVocals = !removeVocals;
     });
 
-
-    final vocals =
-        stems.first;
-
+    final vocals = stems.first;
 
     await vocals.player.setVolume(
-
       removeVocals
           ? 0.0
-          : vocals.volume *
-            masterVolume,
+          : vocals.volume * masterVolume,
     );
   }
-
 
   // ==========================================================
   // FORMAT TIME
   // ==========================================================
 
-  String formatDuration(
-    Duration value,
-  ) {
-
-    final minutes =
-        value.inMinutes;
-
-    final seconds =
-        value.inSeconds % 60;
+  String formatDuration(Duration value) {
+    final minutes = value.inMinutes;
+    final seconds = value.inSeconds % 60;
 
     return '$minutes:'
         '${seconds.toString().padLeft(2, '0')}';
   }
-
 
   // ==========================================================
   // SAVE FINAL MIX
   // ==========================================================
 
   Future<void> saveFinalMix() async {
-
-    if (
-      !stemsReady ||
-      jobId == null
-    ) {
+    if (!stemsReady || jobId == null) {
       return;
     }
 
-
     try {
-
       setState(() {
-        statusMessage =
-            'Saving final mix...';
+        statusMessage = 'Saving final mix...';
       });
 
-
-      final stemSettings =
-          <String, dynamic>{};
-
+      final stemSettings = <String, dynamic>{};
 
       for (final stem in stems) {
-
-        final key =
-            stem.name.toLowerCase();
-
+        final key = stem.name.toLowerCase();
 
         stemSettings[key] = {
-
-          'volume':
-              stem.volume,
-
-          'muted':
-              stem.muted,
+          'volume': stem.volume,
+          'muted': stem.muted,
         };
       }
 
-
-      // Remove vocals button
-      // overrides the vocal settings.
-
+      // Remove vocals overrides vocal settings.
       if (removeVocals) {
-
         stemSettings['vocals'] = {
-
           'volume': 0.0,
-
           'muted': true,
         };
       }
 
-
       // ======================================================
-      // SEND EXPORT REQUEST
+      // EXPORT REQUEST
       // ======================================================
 
-      final response =
-          await http.post(
-
-        Uri.parse(
-          '$backendUrl/export',
-        ),
-
+      final response = await http.post(
+        Uri.parse('$backendUrl/export'),
         headers: {
-          'Content-Type':
-              'application/json',
+          'Content-Type': 'application/json',
         },
-
         body: jsonEncode({
-
-          'job_id':
-              jobId,
-
-          'master_volume':
-              masterVolume,
-
-          'semitones':
-              transpose.round(),
-
-          'stems':
-              stemSettings,
+          'job_id': jobId,
+          'master_volume': masterVolume,
+          'semitones': transpose.round(),
+          'stems': stemSettings,
         }),
       );
 
-
       if (response.statusCode != 200) {
-
-        String message =
-            'Export failed';
-
+        String message = 'Export failed';
 
         try {
+          final error = jsonDecode(response.body);
 
-          final error =
-              jsonDecode(response.body);
-
-          if (
-            error is Map &&
-            error['detail'] != null
-          ) {
-
-            message =
-                error['detail'].toString();
+          if (error is Map &&
+              error['detail'] != null) {
+            message = error['detail'].toString();
           }
-
         } catch (_) {}
-
 
         throw Exception(message);
       }
 
-
-      final data =
-          jsonDecode(response.body);
-
+      final data = jsonDecode(response.body);
 
       final downloadUrl =
-          '$backendUrl'
-          '${data['download_url']}';
-
+          '$backendUrl${data['download_url']}';
 
       // ======================================================
       // BROWSER DOWNLOAD
       // ======================================================
 
-      final anchor =
-          html.AnchorElement(
-            href: downloadUrl,
-          )
-            ..setAttribute(
-              'download',
-              'Musiq_Final.mp3',
-            )
-            ..style.display = 'none';
+      final anchor = html.AnchorElement(
+        href: downloadUrl,
+      )
+        ..setAttribute(
+          'download',
+          'Musiq_Final.mp3',
+        )
+        ..style.display = 'none';
 
-
-      html.document.body
-          ?.children
-          .add(anchor);
-
+      html.document.body?.children.add(anchor);
 
       anchor.click();
-
       anchor.remove();
-
 
       if (!mounted) return;
 
-
       setState(() {
-
-        statusMessage =
-            'Final mix saved!';
+        statusMessage = 'Final mix saved!';
       });
 
-
-      ScaffoldMessenger
-          .of(context)
-          .showSnackBar(
-
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Musiq_Final.mp3 downloaded successfully',
           ),
         ),
       );
-
     } catch (e) {
-
       if (!mounted) return;
 
-
       setState(() {
-
-        statusMessage =
-            'Save failed';
+        statusMessage = 'Save failed';
       });
 
-
-      ScaffoldMessenger
-          .of(context)
-          .showSnackBar(
-
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Save failed: $e',
@@ -1170,273 +1007,246 @@ class _SoundMixerPageState
     }
   }
 
+  // ==========================================================
+  // SMALL DIVIDER
+  // ==========================================================
+
+  Widget buildRedLine() {
+    return Container(
+      height: 2,
+      color: kRed,
+    );
+  }
 
   // ==========================================================
   // HEADER
   // ==========================================================
 
   Widget buildHeader() {
-
     return Padding(
-
-      padding:
-          const EdgeInsets.fromLTRB(
-        28,
-        22,
-        28,
+      padding: const EdgeInsets.fromLTRB(
+        18,
+        20,
+        18,
         12,
       ),
-
       child: Row(
-
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // --------------------------------------------------
+          // LOGO
+          // --------------------------------------------------
 
-          const Text(
-            'MUSIQ',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight:
-                  FontWeight.w800,
-              letterSpacing: 3,
+          Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: const [
+              Text(
+                'இசை',
+                style: TextStyle(
+                  fontSize: 42,
+                  height: 0.9,
+                  fontWeight: FontWeight.w900,
+                  color: kCream,
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'I S A I',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 5,
+                  color: kMuted,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(width: 12),
+
+          // --------------------------------------------------
+          // SUNBURST
+          // --------------------------------------------------
+
+          Container(
+            width: 54,
+            height: 54,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: kRed,
+            ),
+            child: const Icon(
+              Icons.wb_sunny_outlined,
+              color: kBlack,
+              size: 34,
             ),
           ),
 
           const Spacer(),
 
-          Container(
+          // --------------------------------------------------
+          // READY
+          // --------------------------------------------------
 
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 14,
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
               vertical: 8,
             ),
-
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xFF17181E),
-              borderRadius:
-                  BorderRadius.circular(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
               border: Border.all(
-                color:
-                    Colors.white
-                        .withOpacity(0.08),
+                color: Colors.white24,
               ),
             ),
-
-            child: Text(
-
-              stemsReady
-                  ? '● READY'
-                  : '● OFFLINE',
-
-              style: TextStyle(
-
-                fontSize: 11,
-
-                fontWeight:
-                    FontWeight.bold,
-
-                color: stemsReady
-                    ? const Color(
-                        0xFF70E000,
-                      )
-                    : Colors.white54,
-              ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: kRed,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  stemsReady ? 'READY' : 'OFFLINE',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                    color: kCream,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
-
 
   // ==========================================================
   // UPLOAD PANEL
   // ==========================================================
 
   Widget buildUploadPanel() {
-
     return Container(
-
-      margin:
-          const EdgeInsets.symmetric(
-        horizontal: 28,
+      margin: const EdgeInsets.symmetric(
+        horizontal: 16,
       ),
-
-      padding:
-          const EdgeInsets.all(22),
-
-      decoration:
-          BoxDecoration(
-
-        gradient:
-            const LinearGradient(
-
-          colors: [
-
-            Color(0xFF18121F),
-
-            Color(0xFF121318),
-          ],
-        ),
-
-        borderRadius:
-            BorderRadius.circular(24),
-
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: kPanel,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-
-          color:
-              const Color(0xFFA855F7)
-                  .withOpacity(0.25),
+          color: kRed.withOpacity(0.55),
         ),
       ),
-
       child: Row(
-
         children: [
-
           Container(
-
-            width: 62,
-            height: 62,
-
-            decoration:
-                BoxDecoration(
-
-              color:
-                  const Color(0xFFA855F7)
-                      .withOpacity(0.15),
-
-              borderRadius:
-                  BorderRadius.circular(18),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: kRed,
+              borderRadius: BorderRadius.circular(13),
             ),
-
-            child:
-                const Icon(
-
+            child: const Icon(
               Icons.music_note_rounded,
-
-              color:
-                  Color(0xFFA855F7),
-
-              size: 30,
+              color: kBlack,
+              size: 25,
             ),
           ),
 
-          const SizedBox(width: 18),
+          const SizedBox(width: 12),
 
           Expanded(
-
             child: Column(
-
               crossAxisAlignment:
                   CrossAxisAlignment.start,
-
               children: [
-
                 Text(
-
                   selectedFileName ??
-                      'No song selected',
-
+                      'NO SONG SELECTED',
                   maxLines: 1,
-
                   overflow:
                       TextOverflow.ellipsis,
-
-                  style:
-                      const TextStyle(
-
-                    fontSize: 16,
-
-                    fontWeight:
-                        FontWeight.bold,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                    color: kCream,
                   ),
                 ),
-
                 const SizedBox(height: 5),
-
                 Text(
-
                   statusMessage,
-
                   maxLines: 2,
-
                   overflow:
                       TextOverflow.ellipsis,
-
-                  style:
-                      const TextStyle(
-
-                    color:
-                        Colors.white54,
-
-                    fontSize: 12,
+                  style: const TextStyle(
+                    color: kMuted,
+                    fontSize: 10,
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(width: 15),
+          const SizedBox(width: 10),
 
-          ElevatedButton.icon(
-
-            onPressed:
-                isLoading
-                    ? null
-                    : pickSong,
-
-            icon:
-
-                isLoading
-
-                    ? const SizedBox(
-
-                        width: 17,
-                        height: 17,
-
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
-                      )
-
-                    : const Icon(
-                        Icons.upload_rounded,
-                      ),
-
-            label:
-
-                Text(
-                  isLoading
-                      ? 'PROCESSING'
-                      : 'UPLOAD SONG',
-                ),
-
-            style:
-                ElevatedButton.styleFrom(
-
-              backgroundColor:
-                  const Color(
-                0xFFA855F7,
-              ),
-
-              foregroundColor:
-                  Colors.white,
-
+          GestureDetector(
+            onTap: isLoading
+                ? null
+                : pickSong,
+            child: Container(
               padding:
                   const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 15,
+                horizontal: 12,
+                vertical: 11,
               ),
-
-              shape:
-                  RoundedRectangleBorder(
-
+              decoration: BoxDecoration(
+                color: kRed,
                 borderRadius:
-                    BorderRadius.circular(14),
+                    BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  if (isLoading)
+                    const SizedBox(
+                      width: 15,
+                      height: 15,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: kBlack,
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.upload_rounded,
+                      color: kBlack,
+                      size: 17,
+                    ),
+
+                  const SizedBox(width: 6),
+
+                  Text(
+                    isLoading
+                        ? 'WAIT'
+                        : 'UPLOAD',
+                    style: const TextStyle(
+                      color: kBlack,
+                      fontSize: 10,
+                      fontWeight:
+                          FontWeight.w900,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1445,184 +1255,190 @@ class _SoundMixerPageState
     );
   }
 
-
   // ==========================================================
-  // TURN TABLE
+  // VINYL RECORD
   // ==========================================================
 
-  Widget buildTurntable() {
-
+  Widget buildVinylRecord() {
     return Container(
-
-      width:
-          double.infinity,
-
-      margin:
-          const EdgeInsets.fromLTRB(
-        28,
-        18,
-        28,
-        0,
-      ),
-
-      padding:
-          const EdgeInsets.all(25),
-
-      decoration:
-          BoxDecoration(
-
-        color:
-            const Color(0xFF121318),
-
-        borderRadius:
-            BorderRadius.circular(24),
-
+      width: 220,
+      height: 220,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFF111111),
         border: Border.all(
-          color:
-              Colors.white
-                  .withOpacity(0.06),
+          color: kCream.withOpacity(0.22),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.8),
+            blurRadius: 30,
+            spreadRadius: 5,
+          ),
+        ],
       ),
-
-      child: Column(
-
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-
-          Container(
-
-            width: 245,
-            height: 245,
-
-            decoration:
-                BoxDecoration(
-
-              shape:
-                  BoxShape.circle,
-
-              gradient:
-                  const RadialGradient(
-
-                colors: [
-
-                  Color(0xFF3B3B44),
-
-                  Color(0xFF15151A),
-
-                  Color(0xFF08090B),
-                ],
-              ),
-
-              boxShadow: [
-
-                BoxShadow(
-
-                  color:
-                      const Color(
-                    0xFFA855F7,
-                  ).withOpacity(0.18),
-
-                  blurRadius: 35,
-
-                  spreadRadius: 4,
+          // Vinyl grooves
+          for (int i = 0; i < 7; i++)
+            Container(
+              width: 188.0 - (i * 18),
+              height: 188.0 - (i * 18),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white
+                      .withOpacity(0.045),
+                  width: 1,
                 ),
-              ],
+              ),
             ),
 
-            child: Center(
-
-              child: Container(
-
-                width: 82,
-                height: 82,
-
-                decoration:
-                    const BoxDecoration(
-
-                  shape:
-                      BoxShape.circle,
-
-                  gradient:
-                      LinearGradient(
-
-                    colors: [
-
-                      Color(0xFFFF40DA),
-
-                      Color(0xFFA855F7),
-                    ],
-                  ),
-                ),
-
-                child:
-                    const Icon(
-
-                  Icons.music_note_rounded,
-
-                  size: 38,
-
-                  color:
-                      Colors.white,
-                ),
-              ),
+          // Red label
+          Container(
+            width: 70,
+            height: 70,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: kRed,
+            ),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: kBlack,
+              size: 38,
             ),
           ),
+
+          // Centre
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: kCream,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================
+  // PLAYER
+  // ==========================================================
+
+  Widget buildPlayer() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        16,
+        18,
+        16,
+        0,
+      ),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: kPanel,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.white
+              .withOpacity(0.08),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Decorative top line
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 2,
+                  color: kRed,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'PLAY',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                  color: kMuted,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  height: 2,
+                  color: kRed,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          buildVinylRecord(),
 
           const SizedBox(height: 18),
 
           Text(
-
             selectedFileName ??
-                'Your song',
-
+                'YOUR SONG',
             maxLines: 1,
-
-            overflow:
-                TextOverflow.ellipsis,
-
-            style:
-                const TextStyle(
-
-              fontWeight:
-                  FontWeight.bold,
-
-              fontSize: 18,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+              color: kCream,
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
+
+          const Text(
+            'ISAI KARAOKE SESSION',
+            style: TextStyle(
+              fontSize: 9,
+              letterSpacing: 2,
+              color: kMuted,
+            ),
+          ),
+
+          const SizedBox(height: 8),
 
           Text(
-
             '${formatDuration(position)} / '
             '${formatDuration(duration)}',
-
-            style:
-                const TextStyle(
-
-              color:
-                  Colors.white54,
-
-              fontSize: 12,
+            style: const TextStyle(
+              color: kMuted,
+              fontSize: 11,
             ),
           ),
+
+          const SizedBox(height: 12),
+
+          buildTimeline(),
+
+          const SizedBox(height: 5),
+
+          buildTransportControls(),
         ],
       ),
     );
   }
-
 
   // ==========================================================
   // TIMELINE
   // ==========================================================
 
   Widget buildTimeline() {
-
     final maxMilliseconds =
         duration.inMilliseconds > 0
-            ? duration.inMilliseconds
-                .toDouble()
+            ? duration.inMilliseconds.toDouble()
             : 1.0;
-
 
     final currentMilliseconds =
         position.inMilliseconds
@@ -1632,203 +1448,106 @@ class _SoundMixerPageState
             )
             .toDouble();
 
-
-    return Padding(
-
-      padding:
-          const EdgeInsets.fromLTRB(
-        28,
-        18,
-        28,
-        0,
-      ),
-
-      child: Column(
-
-        children: [
-
-          SliderTheme(
-
-            data:
-                SliderTheme.of(context)
-                    .copyWith(
-
-              activeTrackColor:
-                  const Color(
-                0xFFA855F7,
-              ),
-
-              inactiveTrackColor:
-                  Colors.white12,
-
-              thumbColor:
-                  const Color(
-                0xFFFF40DA,
-              ),
-
-              overlayColor:
-                  const Color(
-                0xFFA855F7,
-              ).withOpacity(0.15),
-
-              trackHeight: 4,
-            ),
-
-            child: Slider(
-
-              value:
-                  currentMilliseconds,
-
-              min: 0,
-
-              max:
-                  maxMilliseconds,
-
-              onChanged:
-
-                  stemsReady
-
-                      ? (value) {
-
-                          seekAll(
-                            Duration(
-                              milliseconds:
-                                  value.round(),
-                            ),
-                          );
-                        }
-
-                      : null,
+    return Column(
+      children: [
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: kRed,
+            inactiveTrackColor:
+                Colors.white12,
+            thumbColor: kCream,
+            overlayColor:
+                kRed.withOpacity(0.15),
+            trackHeight: 3,
+            thumbShape:
+                const RoundSliderThumbShape(
+              enabledThumbRadius: 6,
             ),
           ),
-
-          Row(
-
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
-
-            children: [
-
-              Text(
-                formatDuration(position),
-                style:
-                    const TextStyle(
-                  color:
-                      Colors.white54,
-                  fontSize: 11,
-                ),
-              ),
-
-              Text(
-                formatDuration(duration),
-                style:
-                    const TextStyle(
-                  color:
-                      Colors.white54,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  // ==========================================================
-  // PLAY BUTTON
-  // ==========================================================
-
-  Widget buildPlayButton() {
-
-    return Padding(
-
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 16,
-      ),
-
-      child: GestureDetector(
-
-        onTap:
-            stemsReady
-                ? playAll
-                : null,
-
-        child: Container(
-
-          width: 72,
-          height: 72,
-
-          decoration:
-              BoxDecoration(
-
-            shape:
-                BoxShape.circle,
-
-            gradient:
-
-                stemsReady
-
-                    ? const LinearGradient(
-
-                        colors: [
-
-                          Color(0xFFFF40DA),
-
-                          Color(0xFFA855F7),
-                        ],
-                      )
-
-                    : const LinearGradient(
-
-                        colors: [
-
-                          Color(0xFF33343A),
-
-                          Color(0xFF222329),
-                        ],
+          child: Slider(
+            value: currentMilliseconds,
+            min: 0,
+            max: maxMilliseconds,
+            onChanged: stemsReady
+                ? (value) {
+                    seekAll(
+                      Duration(
+                        milliseconds:
+                            value.round(),
                       ),
-
-            boxShadow:
-
-                stemsReady
-
-                    ? [
-
-                        BoxShadow(
-
-                          color:
-                              const Color(
-                            0xFFA855F7,
-                          ).withOpacity(0.35),
-
-                          blurRadius: 25,
-
-                          spreadRadius: 3,
-                        ),
-                      ]
-
-                    : [],
-          ),
-
-          child: Icon(
-
-            isPlaying
-                ? Icons.pause_rounded
-                : Icons.play_arrow_rounded,
-
-            size: 38,
-
-            color:
-                Colors.white,
+                    );
+                  }
+                : null,
           ),
         ),
-      ),
+      ],
     );
   }
 
+  // ==========================================================
+  // TRANSPORT CONTROLS
+  // ==========================================================
+
+  Widget buildTransportControls() {
+    return Row(
+      mainAxisAlignment:
+          MainAxisAlignment.center,
+      children: [
+        IconButton(
+          onPressed: stemsReady
+              ? () {
+                  seekAll(
+                    Duration.zero,
+                  );
+                }
+              : null,
+          icon: const Icon(
+            Icons.skip_previous_rounded,
+          ),
+          color: kCream,
+        ),
+
+        const SizedBox(width: 14),
+
+        GestureDetector(
+          onTap:
+              stemsReady ? playAll : null,
+          child: Container(
+            width: 66,
+            height: 66,
+            decoration:
+                const BoxDecoration(
+              shape: BoxShape.circle,
+              color: kRed,
+            ),
+            child: Icon(
+              isPlaying
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
+              color: kBlack,
+              size: 36,
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 14),
+
+        IconButton(
+          onPressed: stemsReady
+              ? () {
+                  seekAll(
+                    duration,
+                  );
+                }
+              : null,
+          icon: const Icon(
+            Icons.skip_next_rounded,
+          ),
+          color: kCream,
+        ),
+      ],
+    );
+  }
 
   // ==========================================================
   // STEM CARD
@@ -1837,200 +1556,150 @@ class _SoundMixerPageState
   Widget buildStemCard(
     StemData stem,
   ) {
-
     return Container(
-
-      margin:
-          const EdgeInsets.only(
-        bottom: 12,
+      margin: const EdgeInsets.only(
+        bottom: 10,
       ),
-
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 13,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 10,
       ),
-
-      decoration:
-          BoxDecoration(
-
-        color:
-            const Color(0xFF15161B),
-
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D0E0E),
         borderRadius:
-            BorderRadius.circular(17),
-
+            BorderRadius.circular(16),
         border: Border.all(
-
-          color:
-
-              stem.muted
-
-                  ? Colors.white
-                      .withOpacity(0.04)
-
-                  : stem.color
-                      .withOpacity(0.18),
+          color: stem.muted
+              ? Colors.white
+                  .withOpacity(0.06)
+              : Colors.white
+                  .withOpacity(0.11),
         ),
       ),
-
       child: Row(
-
         children: [
+          // --------------------------------------------------
+          // ICON BOX
+          // --------------------------------------------------
 
           Container(
-
-            width: 45,
-            height: 45,
-
-            decoration:
-                BoxDecoration(
-
-              color:
-                  stem.color
-                      .withOpacity(0.12),
-
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: stem.color,
               borderRadius:
-                  BorderRadius.circular(13),
+                  BorderRadius.circular(14),
             ),
-
-            child: Center(
-
-              child: Text(
-
-                stem.icon,
-
-                style:
-                    const TextStyle(
-                  fontSize: 20,
-                ),
-              ),
+            child: Icon(
+              stem.icon,
+              color: kBlack,
+              size: 26,
             ),
           ),
 
-          const SizedBox(width: 13),
+          const SizedBox(width: 12),
 
-          SizedBox(
-
-            width: 75,
-
-            child: Text(
-
-              stem.name,
-
-              style:
-                  TextStyle(
-
-                fontWeight:
-                    FontWeight.bold,
-
-                color:
-
-                    stem.muted
-                        ? Colors.white38
-                        : Colors.white,
-              ),
-            ),
-          ),
+          // --------------------------------------------------
+          // NAME + SLIDER
+          // --------------------------------------------------
 
           Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  stem.name,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight:
+                        FontWeight.w900,
+                    letterSpacing: 1.5,
+                    color: stem.muted
+                        ? kMuted
+                        : kCream,
+                  ),
+                ),
 
-            child: SliderTheme(
+                const SizedBox(height: 2),
 
-              data:
-                  SliderTheme.of(context)
-                      .copyWith(
-
-                activeTrackColor:
-                    stem.color,
-
-                inactiveTrackColor:
-                    Colors.white10,
-
-                thumbColor:
-                    stem.color,
-
-                trackHeight: 4,
-              ),
-
-              child: Slider(
-
-                value:
-                    stem.volume,
-
-                min: 0,
-
-                max: 1,
-
-                onChanged:
-
-                    stemsReady
-
+                SliderTheme(
+                  data:
+                      SliderTheme.of(context)
+                          .copyWith(
+                    activeTrackColor:
+                        stem.color,
+                    inactiveTrackColor:
+                        Colors.white12,
+                    thumbColor: kCream,
+                    trackHeight: 3,
+                    overlayColor:
+                        stem.color
+                            .withOpacity(0.12),
+                    thumbShape:
+                        const RoundSliderThumbShape(
+                      enabledThumbRadius: 6,
+                    ),
+                  ),
+                  child: Slider(
+                    value: stem.volume,
+                    min: 0,
+                    max: 1,
+                    onChanged: stemsReady
                         ? (value) {
-
                             changeStemVolume(
                               stem,
                               value,
                             );
                           }
-
                         : null,
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
+
+          const SizedBox(width: 5),
+
+          // --------------------------------------------------
+          // VALUE
+          // --------------------------------------------------
 
           SizedBox(
-
-            width: 45,
-
+            width: 38,
             child: Text(
-
               '${(stem.volume * 100).round()}%',
-
-              textAlign:
-                  TextAlign.right,
-
-              style:
-                  const TextStyle(
-
-                color:
-                    Colors.white54,
-
-                fontSize: 11,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: kCream,
               ),
             ),
           ),
 
-          const SizedBox(width: 8),
+          // --------------------------------------------------
+          // MUTE
+          // --------------------------------------------------
 
           IconButton(
-
-            tooltip:
-                stem.muted
-                    ? 'Unmute'
-                    : 'Mute',
-
-            onPressed:
-
-                stemsReady
-
-                    ? () {
-                        toggleMute(stem);
-                      }
-
-                    : null,
-
+            padding: EdgeInsets.zero,
+            constraints:
+                const BoxConstraints(
+              minWidth: 38,
+              minHeight: 38,
+            ),
+            onPressed: stemsReady
+                ? () => toggleMute(stem)
+                : null,
             icon: Icon(
-
               stem.muted
                   ? Icons.volume_off_rounded
                   : Icons.volume_up_rounded,
-
-              color:
-
-                  stem.muted
-                      ? Colors.white30
-                      : stem.color,
+              color: stem.muted
+                  ? kMuted
+                  : kCream,
+              size: 20,
             ),
           ),
         ],
@@ -2038,547 +1707,665 @@ class _SoundMixerPageState
     );
   }
 
-
   // ==========================================================
-  // MIXER
+  // STEM MIXER
   // ==========================================================
 
   Widget buildMixer() {
-
     return Container(
-
-      margin:
-          const EdgeInsets.fromLTRB(
-        28,
+      margin: const EdgeInsets.fromLTRB(
+        16,
         18,
-        28,
+        16,
         0,
       ),
-
-      padding:
-          const EdgeInsets.all(20),
-
-      decoration:
-          BoxDecoration(
-
-        color:
-            const Color(0xFF101116),
-
-        borderRadius:
-            BorderRadius.circular(24),
-
-        border: Border.all(
-          color:
-              Colors.white
-                  .withOpacity(0.06),
-        ),
-      ),
-
-      child: Column(
-
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-
-        children: [
-
-          const Text(
-
-            'STEM MIXER',
-
-            style:
-                TextStyle(
-
-              letterSpacing: 2,
-
-              fontSize: 12,
-
-              fontWeight:
-                  FontWeight.bold,
-
-              color:
-                  Colors.white54,
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          ...stems.map(
-            buildStemCard,
-          ),
-
-          const SizedBox(height: 8),
-
-          Row(
-
-            children: [
-
-              const Icon(
-
-                Icons.volume_up_rounded,
-
-                size: 17,
-
-                color:
-                    Colors.white54,
-              ),
-
-              const SizedBox(width: 10),
-
-              const Text(
-
-                'MASTER',
-
-                style:
-                    TextStyle(
-
-                  color:
-                      Colors.white54,
-
-                  fontSize: 11,
-
-                  fontWeight:
-                      FontWeight.bold,
-                ),
-              ),
-
-              Expanded(
-
-                child: SliderTheme(
-
-                  data:
-                      SliderTheme.of(context)
-                          .copyWith(
-
-                    activeTrackColor:
-                        Colors.white,
-
-                    inactiveTrackColor:
-                        Colors.white10,
-
-                    thumbColor:
-                        Colors.white,
-
-                    trackHeight: 3,
-                  ),
-
-                  child: Slider(
-
-                    value:
-                        masterVolume,
-
-                    min: 0,
-
-                    max: 1,
-
-                    onChanged:
-
-                        stemsReady
-                            ? changeMasterVolume
-                            : null,
-                  ),
-                ),
-              ),
-
-              Text(
-
-                '${(masterVolume * 100).round()}%',
-
-                style:
-                    const TextStyle(
-
-                  color:
-                      Colors.white54,
-
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  // ==========================================================
-  // CONTROLS
-  // ==========================================================
-
-  Widget buildControls() {
-
-    return Container(
-
-      margin:
-          const EdgeInsets.fromLTRB(
-        28,
-        18,
-        28,
-        28,
-      ),
-
-      padding:
-          const EdgeInsets.all(20),
-
-      decoration:
-          BoxDecoration(
-
-        color:
-            const Color(0xFF15161B),
-
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kPanel,
         borderRadius:
             BorderRadius.circular(22),
-
         border: Border.all(
-          color:
-              Colors.white
-                  .withOpacity(0.06),
+          color: kRed.withOpacity(0.65),
+          width: 1.2,
         ),
       ),
-
       child: Column(
-
         crossAxisAlignment:
             CrossAxisAlignment.start,
-
         children: [
-
-          const Text(
-
-            'SONG CONTROLS',
-
-            style:
-                TextStyle(
-
-              letterSpacing: 2,
-
-              fontSize: 12,
-
-              fontWeight:
-                  FontWeight.bold,
-
-              color:
-                  Colors.white54,
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
-          // ==================================================
-          // TRANSPOSE
-          // ==================================================
+          // --------------------------------------------------
+          // HEADER
+          // --------------------------------------------------
 
           Row(
-
             children: [
-
               const Text(
-
-                'TRANSPOSE',
-
-                style:
-                    TextStyle(
-
-                  fontSize: 11,
-
-                  color:
-                      Colors.white54,
-                ),
-              ),
-
-              Expanded(
-
-                child: SliderTheme(
-
-                  data:
-                      SliderTheme.of(context)
-                          .copyWith(
-
-                    activeTrackColor:
-                        const Color(
-                      0xFFA855F7,
-                    ),
-
-                    inactiveTrackColor:
-                        Colors.white10,
-
-                    thumbColor:
-                        const Color(
-                      0xFFFF40DA,
-                    ),
-                  ),
-
-                  child: Slider(
-
-                    value:
-                        transpose,
-
-                    min: -12,
-
-                    max: 12,
-
-                    divisions: 24,
-
-                    onChanged:
-
-                        stemsReady &&
-                                !isLoading
-
-                            ? (value) {
-
-                                setState(() {
-
-                                  transpose =
-                                      value.round()
-                                          .toDouble();
-                                });
-                              }
-
-                            : null,
-                  ),
-                ),
-              ),
-
-              SizedBox(
-
-                width: 50,
-
-                child: Text(
-
-                  transpose == 0
-
-                      ? '0'
-
-                      : transpose > 0
-
-                          ? '+${transpose.round()}'
-
-                          : transpose
-                              .round()
-                              .toString(),
-
-                  textAlign:
-                      TextAlign.right,
-
-                  style:
-                      const TextStyle(
-
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 4),
-
-              IconButton(
-
-                tooltip:
-                    'Return to original key',
-
-                onPressed:
-
-                    stemsReady &&
-                            !isLoading &&
-                            transpose != 0
-
-                        ? () {
-                            applyTranspose(0);
-                          }
-
-                        : null,
-
-                icon:
-                    const Icon(
-                  Icons.undo_rounded,
-                  size: 20,
-                ),
-
-                color:
-                    const Color(
-                  0xFFFF40DA,
-                ),
-
-                disabledColor:
-                    Colors.white12,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // ==================================================
-          // APPLY TRANSPOSE
-          // ==================================================
-
-          SizedBox(
-
-            width:
-                double.infinity,
-
-            child:
-                ElevatedButton.icon(
-
-              onPressed:
-
-                  stemsReady &&
-                          !isLoading
-
-                      ? () {
-                          applyTranspose(
-                            transpose,
-                          );
-                        }
-
-                      : null,
-
-              icon:
-                  const Icon(
-                Icons.music_note_rounded,
-              ),
-
-              label:
-
-                  Text(
-
-                isLoading
-                    ? 'PROCESSING...'
-                    : 'APPLY TRANSPOSE',
-              ),
-
-              style:
-                  ElevatedButton.styleFrom(
-
-                backgroundColor:
-                    const Color(
-                  0xFFA855F7,
-                ),
-
-                foregroundColor:
-                    Colors.white,
-
-                disabledBackgroundColor:
-                    Colors.white10,
-
-                disabledForegroundColor:
-                    Colors.white30,
-
-                padding:
-                    const EdgeInsets.symmetric(
-                  vertical: 14,
-                ),
-
-                shape:
-                    RoundedRectangleBorder(
-
-                  borderRadius:
-                      BorderRadius.circular(13),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 15),
-
-          // ==================================================
-          // REMOVE VOCALS + SAVE
-          // ==================================================
-
-          Row(
-
-            children: [
-
-              Expanded(
-
-                child:
-                    OutlinedButton.icon(
-
-                  onPressed:
-                      stemsReady
-                          ? toggleRemoveVocals
-                          : null,
-
-                  icon:
-                      const Icon(
-                    Icons.mic_off_rounded,
-                  ),
-
-                  label:
-
-                      Text(
-
-                    removeVocals
-                        ? 'VOCALS REMOVED'
-                        : 'REMOVE VOCALS',
-                  ),
-
-                  style:
-                      OutlinedButton.styleFrom(
-
-                    foregroundColor:
-
-                        removeVocals
-                            ? const Color(
-                                0xFFFF40DA,
-                              )
-                            : Colors.white,
-
-                    side:
-                        BorderSide(
-
-                      color:
-
-                          removeVocals
-                              ? const Color(
-                                  0xFFFF40DA,
-                                )
-                              : Colors.white24,
-                    ),
-
-                    padding:
-                        const EdgeInsets.symmetric(
-                      vertical: 15,
-                    ),
-                  ),
+                'STEM MIXER',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight:
+                      FontWeight.w900,
+                  letterSpacing: 2,
+                  color: kCream,
                 ),
               ),
 
               const SizedBox(width: 12),
 
               Expanded(
+                child: Container(
+                  height: 2,
+                  color: kRed,
+                ),
+              ),
 
-                child:
-                    OutlinedButton.icon(
+              const SizedBox(width: 12),
 
+              Text(
+                '${stems.length} STEMS',
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                  color: kCream,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+
+          // --------------------------------------------------
+          // STEMS
+          // --------------------------------------------------
+
+          ...stems.map(buildStemCard),
+
+          const SizedBox(height: 5),
+
+          // --------------------------------------------------
+          // MASTER
+          // --------------------------------------------------
+
+          Container(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D0E0E),
+              borderRadius:
+                  BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: kRed,
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.tune_rounded,
+                    color: kBlack,
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                const SizedBox(
+                  width: 52,
+                  child: Text(
+                    'MASTER',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight:
+                          FontWeight.w900,
+                      letterSpacing: 1,
+                      color: kCream,
+                    ),
+                  ),
+                ),
+
+                Expanded(
+                  child: SliderTheme(
+                    data:
+                        SliderTheme.of(context)
+                            .copyWith(
+                      activeTrackColor:
+                          kCream,
+                      inactiveTrackColor:
+                          Colors.white12,
+                      thumbColor: kRed,
+                      trackHeight: 3,
+                      thumbShape:
+                          const RoundSliderThumbShape(
+                        enabledThumbRadius: 6,
+                      ),
+                    ),
+                    child: Slider(
+                      value: masterVolume,
+                      min: 0,
+                      max: 1,
+                      onChanged: stemsReady
+                          ? changeMasterVolume
+                          : null,
+                    ),
+                  ),
+                ),
+
+                Text(
+                  '${(masterVolume * 100).round()}%',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight:
+                        FontWeight.bold,
+                    color: kCream,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================
+  // CONTROL SLIDER
+  // ==========================================================
+
+  Widget buildControlSlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String displayValue,
+    required ValueChanged<double>? onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight:
+                    FontWeight.w900,
+                letterSpacing: 1.5,
+                color: kBlack,
+              ),
+            ),
+
+            const Spacer(),
+
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                color: kBlack,
+                borderRadius:
+                    BorderRadius.circular(6),
+              ),
+              child: Text(
+                displayValue,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight:
+                      FontWeight.w900,
+                  color: kCream,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 3),
+
+        SliderTheme(
+          data:
+              SliderTheme.of(context).copyWith(
+            activeTrackColor: kBlack,
+            inactiveTrackColor:
+                kBlack.withOpacity(0.20),
+            thumbColor: kCream,
+            overlayColor:
+                kBlack.withOpacity(0.12),
+            trackHeight: 3,
+            thumbShape:
+                const RoundSliderThumbShape(
+              enabledThumbRadius: 7,
+            ),
+          ),
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
+        ),
+
+        Row(
+          mainAxisAlignment:
+              MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              min.round().toString(),
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: kBlack,
+              ),
+            ),
+
+            Text(
+              '0',
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: kBlack,
+              ),
+            ),
+
+            Text(
+              max.round().toString(),
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: kBlack,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================
+  // SONG CONTROLS
+  // ==========================================================
+
+  Widget buildControls() {
+    final transposeDisplay =
+        transpose == 0
+            ? '0'
+            : transpose > 0
+                ? '+${transpose.round()}'
+                : transpose.round().toString();
+
+    final tempoDisplay =
+        tempo == 0
+            ? '0'
+            : tempo > 0
+                ? '+${tempo.round()}'
+                : tempo.round().toString();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        16,
+        18,
+        16,
+        28,
+      ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kRed,
+        borderRadius:
+            BorderRadius.circular(5),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          // --------------------------------------------------
+          // HEADER
+          // --------------------------------------------------
+
+          Row(
+            children: [
+              const Text(
+                'SONG CONTROLS',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight:
+                      FontWeight.w900,
+                  letterSpacing: 2,
+                  color: kBlack,
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Container(
+                  height: 2,
+                  color: kBlack,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // --------------------------------------------------
+          // TRANSPOSE
+          // --------------------------------------------------
+
+          buildControlSlider(
+            label: 'TRANSPOSE',
+            value: transpose,
+            min: -12,
+            max: 12,
+            divisions: 24,
+            displayValue: transposeDisplay,
+            onChanged:
+                stemsReady && !isLoading
+                    ? (value) {
+                        setState(() {
+                          transpose =
+                              value.round()
+                                  .toDouble();
+                        });
+                      }
+                    : null,
+          ),
+
+          const SizedBox(height: 5),
+
+          // --------------------------------------------------
+          // APPLY TRANSPOSE
+          // --------------------------------------------------
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed:
+                  stemsReady && !isLoading
+                      ? () {
+                          applyTranspose(
+                            transpose,
+                          );
+                        }
+                      : null,
+              icon: const Icon(
+                Icons.music_note_rounded,
+                size: 18,
+              ),
+              label: Text(
+                isLoading
+                    ? 'PROCESSING...'
+                    : 'APPLY TRANSPOSE',
+              ),
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor: kBlack,
+                foregroundColor: kCream,
+                disabledBackgroundColor:
+                    Colors.black26,
+                disabledForegroundColor:
+                    Colors.black38,
+                padding:
+                    const EdgeInsets.symmetric(
+                  vertical: 14,
+                ),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // --------------------------------------------------
+          // TEMPO
+          // --------------------------------------------------
+
+          buildControlSlider(
+            label: 'TEMPO',
+            value: tempo,
+            min: -100,
+            max: 100,
+            divisions: 200,
+            displayValue: tempoDisplay,
+            onChanged:
+                stemsReady && !isLoading
+                    ? (value) {
+                        setState(() {
+                          tempo =
+                              value.round()
+                                  .toDouble();
+                        });
+                      }
+                    : null,
+          ),
+
+          const SizedBox(height: 5),
+
+          // --------------------------------------------------
+          // APPLY TEMPO
+          // --------------------------------------------------
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed:
+                  stemsReady && !isLoading
+                      ? () {
+                          applyTempo(
+                            tempo,
+                          );
+                        }
+                      : null,
+              icon: const Icon(
+                Icons.speed_rounded,
+                size: 18,
+              ),
+              label: Text(
+                isLoading
+                    ? 'PROCESSING...'
+                    : 'APPLY TEMPO',
+              ),
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor: kBlack,
+                foregroundColor: kCream,
+                disabledBackgroundColor:
+                    Colors.black26,
+                disabledForegroundColor:
+                    Colors.black38,
+                padding:
+                    const EdgeInsets.symmetric(
+                  vertical: 14,
+                ),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // --------------------------------------------------
+          // RESET ROW
+          // --------------------------------------------------
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      stemsReady &&
+                              !isLoading &&
+                              transpose != 0
+                          ? () {
+                              applyTranspose(0);
+                            }
+                          : null,
+                  icon: const Icon(
+                    Icons.undo_rounded,
+                    size: 17,
+                  ),
+                  label: const Text(
+                    'RESET KEY',
+                  ),
+                  style:
+                      OutlinedButton.styleFrom(
+                    foregroundColor: kBlack,
+                    disabledForegroundColor:
+                        Colors.black38,
+                    side:
+                        const BorderSide(
+                      color: kBlack,
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(
+                      vertical: 13,
+                    ),
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      stemsReady &&
+                              !isLoading &&
+                              tempo != 0
+                          ? () {
+                              applyTempo(0);
+                            }
+                          : null,
+                  icon: const Icon(
+                    Icons.undo_rounded,
+                    size: 17,
+                  ),
+                  label: const Text(
+                    'RESET TEMPO',
+                  ),
+                  style:
+                      OutlinedButton.styleFrom(
+                    foregroundColor: kBlack,
+                    disabledForegroundColor:
+                        Colors.black38,
+                    side:
+                        const BorderSide(
+                      color: kBlack,
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(
+                      vertical: 13,
+                    ),
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // --------------------------------------------------
+          // REMOVE VOCALS + SAVE
+          // --------------------------------------------------
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: stemsReady
+                      ? toggleRemoveVocals
+                      : null,
+                  icon: Icon(
+                    removeVocals
+                        ? Icons.mic_off_rounded
+                        : Icons.mic_none_rounded,
+                  ),
+                  label: Text(
+                    removeVocals
+                        ? 'VOCALS OFF'
+                        : 'REMOVE VOCALS',
+                  ),
+                  style:
+                      OutlinedButton.styleFrom(
+                    foregroundColor: kBlack,
+                    disabledForegroundColor:
+                        Colors.black38,
+                    side:
+                        const BorderSide(
+                      color: kBlack,
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(
+                      vertical: 14,
+                    ),
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: OutlinedButton.icon(
                   onPressed:
                       stemsReady
                           ? saveFinalMix
                           : null,
-
-                  icon:
-                      const Icon(
+                  icon: const Icon(
                     Icons.download_rounded,
                   ),
-
-                  label:
-                      const Text(
+                  label: const Text(
                     'SAVE',
                   ),
-
                   style:
                       OutlinedButton.styleFrom(
-
-                    foregroundColor:
-                        Colors.white,
-
+                    foregroundColor: kBlack,
+                    disabledForegroundColor:
+                        Colors.black38,
                     side:
                         const BorderSide(
-                      color:
-                          Colors.white24,
+                      color: kBlack,
                     ),
-
                     padding:
                         const EdgeInsets.symmetric(
-                      vertical: 15,
+                      vertical: 14,
+                    ),
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(4),
                     ),
                   ),
                 ),
@@ -2590,42 +2377,34 @@ class _SoundMixerPageState
     );
   }
 
-
   // ==========================================================
   // BUILD
   // ==========================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-
+  Widget build(BuildContext context) {
     return Scaffold(
-
+      backgroundColor: kBackground,
       body: SafeArea(
-
         child: Center(
-
           child: ConstrainedBox(
-
-            constraints:
-                const BoxConstraints(
-              maxWidth: 1050,
+            constraints: const BoxConstraints(
+              maxWidth: 520,
             ),
-
             child: ListView(
-
+              physics:
+                  const BouncingScrollPhysics(),
+              padding: EdgeInsets.zero,
               children: [
-
                 buildHeader(),
+
+                buildRedLine(),
+
+                const SizedBox(height: 12),
 
                 buildUploadPanel(),
 
-                buildTurntable(),
-
-                buildTimeline(),
-
-                buildPlayButton(),
+                buildPlayer(),
 
                 buildMixer(),
 
