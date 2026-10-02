@@ -1,23 +1,24 @@
+from pathlib import Path
+import subprocess
+import time
+import uuid
+import shutil
+
+import numpy as np
+import librosa
+import soundfile as sf
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-import shutil
-import subprocess
-import uuid
-from pathlib import Path
 
-import numpy as np
-import soundfile as sf
-import librosa
-
+# ============================================================
+# APP
+# ============================================================
 
 app = FastAPI(title="Musiq Backend")
 
-
-# ---------------------------------------------------------
-# CORS
-# ---------------------------------------------------------
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,20 +29,20 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------
+# ============================================================
 # DIRECTORIES
-# ---------------------------------------------------------
+# ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
 UPLOAD_DIR = BASE_DIR / "uploads"
-OUTPUT_DIR = BASE_DIR / "server_output"
+OUTPUT_DIR = BASE_DIR / "outputs"
 
-UPLOAD_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# Serve generated audio files
+# Serve generated audio
 app.mount(
     "/audio",
     StaticFiles(directory=str(OUTPUT_DIR)),
@@ -49,9 +50,9 @@ app.mount(
 )
 
 
-# ---------------------------------------------------------
-# ROOT
-# ---------------------------------------------------------
+# ============================================================
+# BASIC ROUTES
+# ============================================================
 
 @app.get("/")
 def root():
@@ -61,187 +62,286 @@ def root():
     }
 
 
-# ---------------------------------------------------------
-# SEPARATE SONG
-# ---------------------------------------------------------
+@app.get("/health")
+def health():
+    return {
+        "success": True,
+        "message": "Musiq backend is running",
+    }
+
+
+# ============================================================
+# STEM CONFIGURATION
+# ============================================================
+
+STEM_NAMES = [
+    "vocals",
+    "drums",
+    "bass",
+    "other",
+]
+
+
+# ============================================================
+# FIND ORIGINAL STEM
+# ============================================================
+
+def get_original_stem(job_dir: Path, stem_name: str):
+
+    possible_files = [
+        job_dir / f"{stem_name}.wav",
+        job_dir / f"{stem_name}.mp3",
+        job_dir / f"{stem_name}.flac",
+    ]
+
+    for file_path in possible_files:
+        if file_path.exists():
+            return file_path
+
+    return None
+
+
+# ============================================================
+# STEM URL
+# ============================================================
+
+def get_stem_url(job_id: str, stem_name: str):
+
+    return (
+        f"/audio/{job_id}/{stem_name}.wav"
+    )
+
+
+# ============================================================
+# LOAD AUDIO AS CHANNELS x SAMPLES
+# ============================================================
+
+def load_audio(file_path: Path):
+
+    audio, sample_rate = librosa.load(
+        str(file_path),
+        sr=None,
+        mono=False,
+    )
+
+    # Convert mono -> 1 x samples
+    if audio.ndim == 1:
+        audio = audio[np.newaxis, :]
+
+    return audio.astype(np.float32), sample_rate
+
+
+# ============================================================
+# SAVE AUDIO
+# ============================================================
+
+def save_audio(
+    file_path: Path,
+    audio: np.ndarray,
+    sample_rate: int,
+):
+
+    # librosa format:
+    # channels x samples
+
+    # soundfile expects:
+    # samples x channels
+
+    sf.write(
+        str(file_path),
+        audio.T,
+        sample_rate,
+    )
+
+
+# ============================================================
+# SEPARATE SONG INTO 4 STEMS
+# ============================================================
 
 @app.post("/separate")
-async def separate_song(file: UploadFile = File(...)):
+async def separate_song(
+    file: UploadFile = File(...)
+):
 
     if not file.filename:
         raise HTTPException(
             status_code=400,
-            detail="No file selected",
+            detail="No filename supplied.",
         )
 
-    job_id = str(uuid.uuid4())[:8]
-
-    extension = Path(file.filename).suffix.lower()
-
-    if extension not in [
-        ".mp3",
-        ".wav",
-        ".m4a",
-        ".flac",
-        ".ogg",
-    ]:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported audio format",
-        )
+    job_id = str(uuid.uuid4())
 
     job_dir = OUTPUT_DIR / job_id
+
     job_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    input_file = UPLOAD_DIR / f"{job_id}{extension}"
+    extension = Path(
+        file.filename
+    ).suffix.lower()
 
-    # Save uploaded song
-    with open(input_file, "wb") as buffer:
-        shutil.copyfileobj(
-            file.file,
-            buffer,
-        )
+    if not extension:
+        extension = ".wav"
 
-    print()
-    print("=" * 60)
-    print("MUSIQ")
-    print("New song received")
-    print(f"File: {file.filename}")
-    print(f"Job ID: {job_id}")
-    print("=" * 60)
-    print()
-
-    # -----------------------------------------------------
-    # RUN DEMUCS
-    # -----------------------------------------------------
+    input_file = (
+        UPLOAD_DIR
+        / f"{job_id}{extension}"
+    )
 
     try:
 
-        command = [
-            "python3",
-            "-m",
-            "demucs",
-            "-o",
-            str(job_dir),
-            str(input_file),
-        ]
+        # ----------------------------------------------------
+        # SAVE UPLOADED SONG
+        # ----------------------------------------------------
 
-        print("Running Demucs...")
-        print(" ".join(command))
-        print()
+        contents = await file.read()
+
+        with open(input_file, "wb") as f:
+            f.write(contents)
+
+        # ----------------------------------------------------
+        # RUN DEMUCS
+        #
+        # IMPORTANT:
+        # There is NO --two-stems option here.
+        #
+        # Therefore Demucs produces:
+        #
+        # vocals
+        # drums
+        # bass
+        # other
+        # ----------------------------------------------------
 
         result = subprocess.run(
-            command,
+            [
+                "python3",
+                "-m",
+                "demucs",
+                "--name",
+                "htdemucs",
+                "-o",
+                str(job_dir),
+                str(input_file),
+            ],
             capture_output=True,
             text=True,
         )
 
-        print(result.stdout)
-
         if result.returncode != 0:
-            print(result.stderr)
 
             raise HTTPException(
                 status_code=500,
-                detail="Demucs separation failed",
+                detail=(
+                    "Demucs failed.\n\n"
+                    + result.stderr
+                ),
             )
+
+        # ----------------------------------------------------
+        # FIND DEMUCS WAV FILES
+        # ----------------------------------------------------
+
+        possible_files = list(
+            job_dir.rglob("*.wav")
+        )
+
+        if not possible_files:
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "Demucs finished but "
+                    "no WAV files were found."
+                ),
+            )
+
+        # ----------------------------------------------------
+        # COPY FOUR STEMS TO SIMPLE JOB DIRECTORY
+        # ----------------------------------------------------
+
+        stems = {}
+
+        for stem_name in STEM_NAMES:
+
+            stem_file = None
+
+            for candidate in possible_files:
+
+                if (
+                    candidate.stem.lower()
+                    == stem_name
+                ):
+                    stem_file = candidate
+                    break
+
+            if stem_file is None:
+                continue
+
+            destination = (
+                job_dir
+                / f"{stem_name}.wav"
+            )
+
+            if stem_file != destination:
+
+                shutil.copy2(
+                    stem_file,
+                    destination,
+                )
+
+            stems[stem_name] = (
+                get_stem_url(
+                    job_id,
+                    stem_name,
+                )
+            )
+
+        # ----------------------------------------------------
+        # VERIFY ALL FOUR STEMS
+        # ----------------------------------------------------
+
+        missing = [
+            stem
+            for stem in STEM_NAMES
+            if stem not in stems
+        ]
+
+        if missing:
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "Demucs did not produce "
+                    "all four stems. "
+                    f"Missing: {missing}"
+                ),
+            )
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "filename": file.filename,
+            "stems": stems,
+            "semitones": 0,
+        }
 
     except HTTPException:
         raise
 
     except Exception as e:
 
-        print("ERROR:", e)
-
         raise HTTPException(
             status_code=500,
             detail=str(e),
         )
 
-    # -----------------------------------------------------
-    # FIND GENERATED WAV FILES
-    # -----------------------------------------------------
 
-    possible_files = list(
-        job_dir.rglob("*.wav")
-    )
-
-    if not possible_files:
-
-        raise HTTPException(
-            status_code=500,
-            detail="No separated audio files were created",
-        )
-
-    print()
-    print("Separated files:")
-
-    for path in possible_files:
-        print(path)
-
-    # -----------------------------------------------------
-    # FIND FOUR STEMS
-    # -----------------------------------------------------
-
-    stems = {}
-
-    for stem_name in [
-        "vocals",
-        "drums",
-        "bass",
-        "other",
-    ]:
-
-        matches = [
-            path
-            for path in job_dir.rglob(
-                f"{stem_name}.wav"
-            )
-            if "transpose_" not in path.parts
-        ]
-
-        if matches:
-
-            relative_path = (
-                matches[0]
-                .relative_to(job_dir)
-                .as_posix()
-            )
-
-            stems[stem_name] = (
-                f"/audio/{job_id}/"
-                f"{relative_path}"
-            )
-
-    if len(stems) < 4:
-
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Not all four stems were found",
-                "found": list(stems.keys()),
-            },
-        )
-
-    print()
-    print("Musiq separation complete!")
-    print(f"Job ID: {job_id}")
-    print()
-
-    return {
-        "success": True,
-        "job_id": job_id,
-        "filename": file.filename,
-        "stems": stems,
-    }
-
-
-# ---------------------------------------------------------
+# ============================================================
 # TRANSPOSE STEMS
-# ---------------------------------------------------------
+# ============================================================
 
 @app.post("/transpose")
 async def transpose_stems(data: dict):
@@ -252,31 +352,37 @@ async def transpose_stems(data: dict):
 
         raise HTTPException(
             status_code=400,
-            detail="Missing job_id",
+            detail="job_id is required.",
         )
 
-    # Convert transpose value to float
     try:
+
         semitones = float(
-            data.get("semitones", 0)
+            data.get(
+                "semitones",
+                0,
+            )
         )
 
-    except (TypeError, ValueError):
+    except Exception:
 
         raise HTTPException(
             status_code=400,
-            detail="Invalid transpose value",
+            detail="Invalid semitone value.",
         )
 
-    # -----------------------------------------------------
-    # LIMIT
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # ONLY ALLOW THE UI RANGE
+    # --------------------------------------------------------
 
     if semitones < -12 or semitones > 12:
 
         raise HTTPException(
             status_code=400,
-            detail="Transpose must be between -12 and +12 semitones",
+            detail=(
+                "Semitones must be between "
+                "-12 and +12."
+            ),
         )
 
     job_dir = OUTPUT_DIR / job_id
@@ -285,60 +391,67 @@ async def transpose_stems(data: dict):
 
         raise HTTPException(
             status_code=404,
-            detail="Song session not found",
+            detail="Job not found.",
         )
 
-    # -----------------------------------------------------
-    # 0 SEMITONES
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # NORMALIZE TO INTEGER
+    #
+    # Slider uses 24 divisions:
+    # -12 ... 0 ... +12
+    # --------------------------------------------------------
+
+    semitones = int(round(semitones))
+
+    # --------------------------------------------------------
+    # ZERO = ORIGINAL AUDIO
+    # --------------------------------------------------------
 
     if semitones == 0:
 
         stems = {}
 
-        for stem_name in [
-            "vocals",
-            "drums",
-            "bass",
-            "other",
-        ]:
+        for stem_name in STEM_NAMES:
 
-            matches = [
-                path
-                for path in job_dir.rglob(
-                    f"{stem_name}.wav"
-                )
-                if "transpose_" not in path.parts
-            ]
+            stem_file = get_original_stem(
+                job_dir,
+                stem_name,
+            )
 
-            if matches:
-
-                relative_path = (
-                    matches[0]
-                    .relative_to(job_dir)
-                    .as_posix()
-                )
+            if stem_file:
 
                 stems[stem_name] = (
-                    f"/audio/{job_id}/"
-                    f"{relative_path}"
+                    get_stem_url(
+                        job_id,
+                        stem_name,
+                    )
                 )
+
+        if len(stems) != 4:
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "Original four stems "
+                    "are missing."
+                ),
+            )
 
         return {
             "success": True,
             "job_id": job_id,
             "semitones": 0,
+            "reset": True,
+            "source": "original",
             "stems": stems,
         }
 
-    # -----------------------------------------------------
-    # CREATE TRANSPOSE FOLDER
-    # -----------------------------------------------------
-
-    shift_name = str(int(semitones))
+    # --------------------------------------------------------
+    # TRANSPOSE DIRECTORY
+    # --------------------------------------------------------
 
     transpose_dir = (
-        job_dir / f"transpose_{shift_name}"
+        job_dir / "transpose"
     )
 
     transpose_dir.mkdir(
@@ -346,95 +459,62 @@ async def transpose_stems(data: dict):
         exist_ok=True,
     )
 
-    print()
-    print("=" * 60)
-    print("MUSIQ TRANSPOSE")
-    print(f"Job ID: {job_id}")
-    print(f"Transpose: {semitones:+g} semitones")
-    print("=" * 60)
-    print()
+    stems = {}
 
-    # -----------------------------------------------------
-    # PROCESS EACH STEM
-    # -----------------------------------------------------
+    # Example:
+    #
+    # vocals_2.wav
+    # drums_2.wav
+    # bass_2.wav
+    # other_2.wav
+    #
 
-    stem_names = [
-        "vocals",
-        "drums",
-        "bass",
-        "other",
-    ]
+    for stem_name in STEM_NAMES:
 
-    try:
+        source_file = get_original_stem(
+            job_dir,
+            stem_name,
+        )
 
-        for stem_name in stem_names:
+        if source_file is None:
+            continue
 
-            # Find ORIGINAL stem only
-            matches = [
-                path
-                for path in job_dir.rglob(
-                    f"{stem_name}.wav"
-                )
-                if "transpose_" not in path.parts
-            ]
+        output_file = (
+            transpose_dir
+            / f"{stem_name}_{semitones}.wav"
+        )
 
-            if not matches:
+        # ----------------------------------------------------
+        # USE CACHED VERSION IF IT EXISTS
+        # ----------------------------------------------------
 
-                print(
-                    f"Skipping {stem_name}: "
-                    "original stem not found"
-                )
+        if output_file.exists():
 
-                continue
-
-            source_file = matches[0]
-
-            output_file = (
-                transpose_dir /
-                f"{stem_name}.wav"
+            stems[stem_name] = (
+                f"/audio/{job_id}/"
+                f"transpose/"
+                f"{output_file.name}"
             )
 
-            # If this transpose version already exists,
-            # don't calculate it again.
-            if output_file.exists():
+            continue
 
-                print(
-                    f"{stem_name}: already exists"
-                )
+        try:
 
-                continue
+            # ------------------------------------------------
+            # LOAD ORIGINAL STEM
+            # ------------------------------------------------
 
-            print(
-                f"Transposing {stem_name} "
-                f"{semitones:+g} semitones..."
+            audio, sample_rate = load_audio(
+                source_file
             )
-
-            # -------------------------------------------------
-            # READ AUDIO
-            # -------------------------------------------------
-
-            audio, sample_rate = sf.read(
-                str(source_file),
-                always_2d=True,
-            )
-
-            audio = audio.astype(
-                np.float32
-            )
-
-            # -------------------------------------------------
-            # PITCH SHIFT EACH CHANNEL
-            # -------------------------------------------------
 
             shifted_channels = []
 
-            for channel_index in range(
-                audio.shape[1]
-            ):
+            # ------------------------------------------------
+            # PITCH SHIFT EACH CHANNEL
+            # ------------------------------------------------
 
-                channel = audio[
-                    :, channel_index
-                ]
+            for channel in audio:
 
                 shifted = (
                     librosa.effects.pitch_shift(
@@ -448,75 +528,75 @@ async def transpose_stems(data: dict):
                     shifted
                 )
 
-            # Put channels back together
+            # ------------------------------------------------
+            # REBUILD CHANNEL ARRAY
+            # ------------------------------------------------
+
             shifted_audio = np.stack(
                 shifted_channels,
-                axis=1,
+                axis=0,
             )
 
-            # -------------------------------------------------
+            # ------------------------------------------------
             # SAVE
-            # -------------------------------------------------
+            # ------------------------------------------------
 
-            sf.write(
-                str(output_file),
+            save_audio(
+                output_file,
                 shifted_audio,
                 sample_rate,
-                subtype="PCM_16",
             )
-
-            print(
-                f"Created: {output_file}"
-            )
-
-    except Exception as e:
-
-        print()
-        print("TRANSPOSE ERROR:")
-        print(e)
-        print()
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"Transpose failed: {str(e)}",
-        )
-
-    # -----------------------------------------------------
-    # BUILD RESPONSE
-    # -----------------------------------------------------
-
-    stems = {}
-
-    for stem_name in stem_names:
-
-        output_file = (
-            transpose_dir /
-            f"{stem_name}.wav"
-        )
-
-        if output_file.exists():
 
             stems[stem_name] = (
                 f"/audio/{job_id}/"
-                f"transpose_{shift_name}/"
-                f"{stem_name}.wav"
+                f"transpose/"
+                f"{output_file.name}"
             )
 
-    print()
-    print("Transpose complete!")
-    print()
+        except Exception as e:
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Transpose failed "
+                    f"for {stem_name}: "
+                    f"{str(e)}"
+                ),
+            )
+
+    # --------------------------------------------------------
+    # VERIFY
+    # --------------------------------------------------------
+
+    missing = [
+        stem
+        for stem in STEM_NAMES
+        if stem not in stems
+    ]
+
+    if missing:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Transpose failed. "
+                f"Missing stems: {missing}"
+            ),
+        )
 
     return {
         "success": True,
         "job_id": job_id,
         "semitones": semitones,
+        "reset": False,
+        "source": "transposed",
         "stems": stems,
     }
 
 
-# ---------------------------------------------------------
-# EXPORT FINAL MIX AS MP3
-# ---------------------------------------------------------
+# ============================================================
+# EXPORT FINAL MIX
+# ============================================================
 
 @app.post("/export")
 async def export_mix(data: dict):
@@ -527,16 +607,7 @@ async def export_mix(data: dict):
 
         raise HTTPException(
             status_code=400,
-            detail="Missing job_id",
-        )
-
-    job_dir = OUTPUT_DIR / job_id
-
-    if not job_dir.exists():
-
-        raise HTTPException(
-            status_code=404,
-            detail="Song session not found",
+            detail="job_id is required.",
         )
 
     stem_settings = data.get(
@@ -551,161 +622,193 @@ async def export_mix(data: dict):
         )
     )
 
-    stem_names = [
-        "vocals",
-        "drums",
-        "bass",
-        "other",
-    ]
+    semitones = int(
+        round(
+            float(
+                data.get(
+                    "semitones",
+                    0,
+                )
+            )
+        )
+    )
+
+    job_dir = OUTPUT_DIR / job_id
+
+    if not job_dir.exists():
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found.",
+        )
+
+    # --------------------------------------------------------
+    # LOAD CURRENT PITCH VERSION
+    # --------------------------------------------------------
 
     audio_arrays = []
+    sample_rates = []
 
-    sample_rate = None
-    channel_count = None
+    for stem_name in STEM_NAMES:
 
-    # -----------------------------------------------------
-    # LOAD STEMS
-    # -----------------------------------------------------
+        # ----------------------------------------------------
+        # ORIGINAL
+        # ----------------------------------------------------
 
-    for stem_name in stem_names:
+        if semitones == 0:
 
-        # Only use original stems for now.
-        # This keeps the existing SAVE behaviour unchanged.
-        matches = [
-            path
-            for path in job_dir.rglob(
-                f"{stem_name}.wav"
+            stem_file = get_original_stem(
+                job_dir,
+                stem_name,
             )
-            if "transpose_" not in path.parts
-        ]
 
-        if not matches:
+        # ----------------------------------------------------
+        # TRANSPOSED
+        # ----------------------------------------------------
+
+        else:
+
+            stem_file = (
+                job_dir
+                / "transpose"
+                / f"{stem_name}_{semitones}.wav"
+            )
+
+            if not stem_file.exists():
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Transposed {stem_name} "
+                        "does not exist. "
+                        "Apply transpose first."
+                    ),
+                )
+
+        if not stem_file or not stem_file.exists():
             continue
 
-        stem_file = matches[0]
+        try:
 
-        settings = stem_settings.get(
-            stem_name,
-            {},
-        )
-
-        muted = bool(
-            settings.get(
-                "muted",
-                False,
+            audio, sample_rate = load_audio(
+                stem_file
             )
-        )
 
-        volume = float(
-            settings.get(
-                "volume",
-                1.0,
+            sample_rates.append(
+                sample_rate
             )
-        )
 
-        if muted or volume <= 0:
-            continue
+            # ------------------------------------------------
+            # STEM SETTINGS
+            # ------------------------------------------------
 
-        audio, sr = sf.read(
-            str(stem_file),
-            always_2d=True,
-        )
+            settings = stem_settings.get(
+                stem_name,
+                {},
+            )
 
-        # -------------------------------------------------
-        # SAMPLE RATE CHECK
-        # -------------------------------------------------
+            muted = bool(
+                settings.get(
+                    "muted",
+                    False,
+                )
+            )
 
-        if sample_rate is None:
+            volume = float(
+                settings.get(
+                    "volume",
+                    1.0,
+                )
+            )
 
-            sample_rate = sr
-            channel_count = audio.shape[1]
+            if muted:
+                volume = 0.0
 
-        if sr != sample_rate:
+            audio *= volume
+
+            audio_arrays.append(audio)
+
+        except Exception as e:
 
             raise HTTPException(
                 status_code=500,
-                detail="Stem sample rates do not match",
+                detail=(
+                    f"Could not load "
+                    f"{stem_name}: {str(e)}"
+                ),
             )
 
-        if audio.shape[1] != channel_count:
-
-            raise HTTPException(
-                status_code=500,
-                detail="Stem channel counts do not match",
-            )
-
-        audio = audio.astype(
-            np.float32
-        )
-
-        # Apply stem volume
-        audio *= volume
-
-        audio_arrays.append(
-            audio
-        )
-
-    # -----------------------------------------------------
+    # --------------------------------------------------------
     # NOTHING TO EXPORT
-    # -----------------------------------------------------
+    # --------------------------------------------------------
 
     if not audio_arrays:
 
         raise HTTPException(
             status_code=400,
-            detail="All stems are muted. Nothing to export.",
+            detail="No audio stems found.",
         )
 
-    # -----------------------------------------------------
-    # FIND LONGEST STEM
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # LONGEST STEM
+    # --------------------------------------------------------
 
     max_length = max(
+        audio.shape[1]
+        for audio in audio_arrays
+    )
+
+    max_channels = max(
         audio.shape[0]
         for audio in audio_arrays
     )
 
+    # --------------------------------------------------------
+    # CREATE MIX
+    # --------------------------------------------------------
+
     mixed = np.zeros(
         (
+            max_channels,
             max_length,
-            audio_arrays[0].shape[1],
         ),
         dtype=np.float32,
     )
 
-    # -----------------------------------------------------
-    # MIX
-    # -----------------------------------------------------
-
     for audio in audio_arrays:
 
-        if audio.shape[0] < max_length:
+        channels = audio.shape[0]
+        length = audio.shape[1]
 
-            padded = np.zeros(
-                (
-                    max_length,
-                    audio.shape[1],
-                ),
-                dtype=np.float32,
+        if (
+            channels == 1
+            and max_channels > 1
+        ):
+
+            padded = np.repeat(
+                audio,
+                max_channels,
+                axis=0,
             )
 
-            padded[
-                :audio.shape[0]
-            ] = audio
+        else:
 
-            audio = padded
+            padded = audio
 
-        mixed += audio
+        mixed[
+            :padded.shape[0],
+            :length,
+        ] += padded
 
-    # -----------------------------------------------------
+    # --------------------------------------------------------
     # MASTER VOLUME
-    # -----------------------------------------------------
+    # --------------------------------------------------------
 
     mixed *= master_volume
 
-    # -----------------------------------------------------
+    # --------------------------------------------------------
     # PREVENT CLIPPING
-    # -----------------------------------------------------
+    # --------------------------------------------------------
 
     peak = np.max(
         np.abs(mixed)
@@ -713,117 +816,85 @@ async def export_mix(data: dict):
 
     if peak > 1.0:
 
-        mixed = mixed / peak
+        mixed /= peak
 
-    # -----------------------------------------------------
-    # TEMPORARY WAV
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # TEMP WAV
+    # --------------------------------------------------------
 
     temp_wav = (
-        job_dir /
-        "Musiq_Final_temp.wav"
+        job_dir / "Musiq_Final.wav"
     )
 
     export_file = (
-        job_dir /
-        "Musiq_Final.mp3"
+        job_dir / "Musiq_Final.mp3"
     )
 
-    sf.write(
-        str(temp_wav),
+    save_audio(
+        temp_wav,
         mixed,
-        sample_rate,
-        subtype="PCM_16",
+        sample_rates[0],
     )
 
-    # -----------------------------------------------------
-    # FFMPEG
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # FIND FFMPEG
+    # --------------------------------------------------------
 
     ffmpeg_path = shutil.which(
         "ffmpeg"
     )
 
-    if ffmpeg_path is None:
-
-        if temp_wav.exists():
-            temp_wav.unlink()
+    if not ffmpeg_path:
 
         raise HTTPException(
             status_code=500,
             detail=(
                 "FFmpeg is not installed "
-                "or cannot be found."
+                "or not available in PATH."
             ),
         )
 
-    ffmpeg_command = [
-        ffmpeg_path,
-        "-y",
-        "-i",
-        str(temp_wav),
-        "-codec:a",
-        "libmp3lame",
-        "-b:a",
-        "192k",
-        str(export_file),
-    ]
+    # --------------------------------------------------------
+    # WAV -> MP3
+    # --------------------------------------------------------
 
-    try:
+    result = subprocess.run(
+        [
+            ffmpeg_path,
+            "-y",
+            "-i",
+            str(temp_wav),
+            "-codec:a",
+            "libmp3lame",
+            "-q:a",
+            "2",
+            str(export_file),
+        ],
+        capture_output=True,
+        text=True,
+    )
 
-        print()
-        print(
-            "Creating final MP3..."
-        )
-
-        result = subprocess.run(
-            ffmpeg_command,
-            capture_output=True,
-            text=True,
-        )
-
-        if result.returncode != 0:
-
-            print(
-                result.stderr
-            )
-
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "MP3 conversion failed."
-                ),
-            )
-
-        print(
-            "MP3 created successfully:"
-        )
-
-        print(export_file)
-
-    except FileNotFoundError:
+    if result.returncode != 0:
 
         raise HTTPException(
             status_code=500,
             detail=(
-                "FFmpeg was not found."
+                "FFmpeg export failed.\n\n"
+                + result.stderr
             ),
         )
 
-    finally:
-
-        if temp_wav.exists():
-            temp_wav.unlink()
-
-    # -----------------------------------------------------
-    # RETURN DOWNLOAD URL
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # RESPONSE
+    # --------------------------------------------------------
 
     return {
         "success": True,
         "filename": "Musiq_Final.mp3",
         "download_url": (
             f"/audio/{job_id}/"
-            "Musiq_Final.mp3"
+            f"Musiq_Final.mp3"
         ),
+        "semitones": semitones,
+        "cache_version": time.time_ns(),
     }
